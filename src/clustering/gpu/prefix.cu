@@ -15,14 +15,18 @@ __device__ void loadSharedF2(
     bankOffsetB = CONFLICT_FREE_OFFSET(bi);
     // We have to put float2 into float4 by duplicating it,
     // This way we can run min/max on both coordinates
-    assert(shift < size);
-    const float2 first = (ai + shift < size && alive[ai + shift]) ? input[ai + shift] : input[0];
-    cache[ai + bankOffsetA] = float4{ first.x, first.y, first.x, first.y };
+    assert(shift < size && (ai + shift < size));
+    if (alive[ai + shift]) {
+        const float2 first = input[ai + shift];
+        cache[ai + bankOffsetA] = float4{ first.x, first.y, first.x, first.y };
+    } else { // Duplicate the first loaded value again, cannot use default values
+        cache[bi + bankOffsetA] = INVALID_BORDERS;
+    }
     if (bi + shift < size && alive[bi + shift]) {
         const float2 second = input[bi + shift];
         cache[bi + bankOffsetB] = float4{ second.x, second.y, second.x, second.y };
     } else { // Duplicate the first loaded value again, cannot use default values
-        cache[bi + bankOffsetB] = cache[ai + bankOffsetA];
+        cache[bi + bankOffsetB] = INVALID_BORDERS;
     }
 }
 
@@ -36,10 +40,9 @@ __device__ void loadSharedF4(
     bi = threadIdx.x + blockDim.x;
     bankOffsetA = CONFLICT_FREE_OFFSET(ai);
     bankOffsetB = CONFLICT_FREE_OFFSET(bi);
-    // TODO load (inf, inf, inf, inf) boarderds
-    assert(shift < size);
-    cache[ai + bankOffsetA] = ((ai + shift < size) ? input[ai + shift] : input[shift]);
-    cache[bi + bankOffsetB] = ((bi + shift < size) ? input[bi + shift] : cache[ai + bankOffsetA]);
+    assert(shift < size && (ai + shift < size));
+    cache[ai + bankOffsetA] = input[ai + shift];
+    cache[bi + bankOffsetB] = ((bi + shift < size) ? input[bi + shift] : INVALID_BORDERS);
 }
 
 // -------- Alive & Grid --------
@@ -53,6 +56,7 @@ __device__ void loadSharedInt(
     bi = threadIdx.x + blockDim.x;
     bankOffsetA = CONFLICT_FREE_OFFSET(ai);
     bankOffsetB = CONFLICT_FREE_OFFSET(bi);
+    assert(ai + shift < size);
     cache[ai + bankOffsetA] = ((ai + shift < size) ? input[ai + shift] : 0);
     cache[bi + bankOffsetB] = ((bi + shift < size) ? input[bi + shift] : 0);
 }
@@ -67,7 +71,8 @@ __device__ void loadSharedBool(
     bi = threadIdx.x + blockDim.x;
     bankOffsetA = CONFLICT_FREE_OFFSET(ai);
     bankOffsetB = CONFLICT_FREE_OFFSET(bi);
-    cache[ai + bankOffsetA] = ((ai + shift < size) ? static_cast<int>(input[ai + shift]) : 0);
+    assert(ai + shift < size);
+    cache[ai + bankOffsetA] = static_cast<int>(input[ai + shift]);
     cache[bi + bankOffsetB] = ((bi + shift < size) ? static_cast<int>(input[bi + shift]) : 0);
 }
 
@@ -187,17 +192,26 @@ __device__ void downScanInt(int* cache, unsigned int offset) {
 
 // -------------------------------- Add kernel --------------------------------
 
-__global__ void addInt(int* out, const int* sums, const int size, const int blockOffset, const int baseIndex) {
+template <bool isNP2> __global__ void addInt(int* out, const int* sums, const int size, const int blockOffset, const int baseIndex) {
     __shared__ int sum;
     if (threadIdx.x == 0) {
         sum = sums[blockIdx.x + blockOffset];
     }
     const unsigned int address = 2 * blockDim.x * blockIdx.x + baseIndex + threadIdx.x;
     __syncthreads();
-    // note two adds per thread
+    assert(address < size);
     out[address] += sum;
-    out[address + blockDim.x] += (threadIdx.x + blockDim.x < size) * sum;
+    if (isNP2) { // Compile-time decision
+        if (address + blockDim.x < size) {
+            out[address + blockDim.x] += sum;
+        }
+    } else {
+        assert(address + blockDim.x < size);
+        out[address + blockDim.x] += sum;
+    }
 }
+template __global__ void addInt<true>(int* out, const int* sums, const int size, const int blockOffset, const int baseIndex);
+template __global__ void addInt<false>(int* out, const int* sums, const int size, const int blockOffset, const int baseIndex);
 
 // -------------------------------- Scan Block --------------------------------
 

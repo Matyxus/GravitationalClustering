@@ -4,13 +4,10 @@
  * \author     Matyáš Švadlenka
  * \date       2024/12/09
  * \brief      Class representing road network in SUMO.
- *
- *  A more elaborated file description.
- *
 */
 //----------------------------------------------------------------------------------------
 #pragma once
-#include "../../lib/pugixml-1.14/pugixml.hpp"
+#include "pugixml.hpp"
 #include "Junction.hpp"
 #include "Edge.hpp"
 #include <iostream>
@@ -18,6 +15,7 @@
 #include <string>
 #include <limits>
 #include <unordered_map>
+
 /// Class that described SUMO's road network.
 /**
   This class represents road network defined by SUMO (https://eclipse.dev/sumo/),
@@ -33,8 +31,9 @@ public:
 	Network(const std::string networkPath, const std::string dataPath) { loadNetwork(networkPath); loadCI(dataPath); };
 	Network(
 		const std::string networkPath, const std::string dataPath, 
-		const float startTime, const float endTime) { 
-		loadNetwork(networkPath); loadCI(dataPath, startTime, endTime); 
+		const float startTime, const float endTime, const float offset) { 
+		loadNetwork(networkPath); 
+		loadCI(dataPath, startTime, endTime, offset); 
 	};
 
 	/// A destructor. Free's memory of class variables.
@@ -67,9 +66,13 @@ public:
 	  \param[in] path  full path to the XML file.
 	  \param[in] startTime  starting time of interval to be taken from data.
 	  \param[in] endTime  ending time of interval to be taken from data.
+	  \param[in] offset Value added to congestions which are 0. (default 0.01)
 	  \return True on success, False otherwise.
 	*/
-	bool loadCI(const std::string path, const float startTime = 0., const float endTime = std::numeric_limits<float>::infinity());
+	bool loadCI(
+		const std::string path, const float startTime = 0., 
+		const float endTime = std::numeric_limits<float>::infinity(), const float offset = 0.01f
+	);
 
 
 	// ----------------------------------------- Exists ----------------------------------------- 

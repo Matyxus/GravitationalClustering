@@ -24,16 +24,20 @@ public:
 	/**
 	  Peforms one entire step of GravitationalClustering.
 
-	  \return True on success, False otherwise.
+	  \return True on success, false otherwise.
 	*/
 	virtual bool step() = 0;
-	inline bool isInitialized() const { return plotOptions != nullptr && clusteringOptions != nullptr; };
+	/**
+	  \return True wheter Clustering is successfully initialized, false otherwise.
+	*/
+	inline bool isInitialized() const { return clusteringOptions != nullptr && state.isInitialized(); };
 	inline Grid &getGrid() { return grid; };
 	inline State &getState() { return state; };
+	inline std::vector<PeformanceRecord> &getRecords() { return records; };
 protected:
 	/// Constructor.
 	/**
-	Assigns pointers and initializes variables.
+	Allocates memory and initializes variables from Network.
 
 	\param[in] config  Configuration variables loaded from file.
 	\param[in] network Road network.
@@ -41,37 +45,21 @@ protected:
 	Interface(Config *config, Network *network);
 	/// Constructor.
 	/**
-	Assigns pointers and initializes variables with random numbers.
+	Allocates memory and initializes variables with random numbers.
 
 	\param[in] config  Configuration variables loaded from file.
-	\param[in] randomOptions Options for RNG
 	*/
-	Interface(Config* config, RandomOptions* randomOptions);
+	Interface(Config* config);
 	// ------------------------ Methods ------------------------ 
 	/**
-	  Initializes all variables and arrays for gravitational clustering.
+	  Initializes or re-sizes Grid spatial structure.
 
-	  \param[in] network Road network loaded from file.
-	  \return True on success, False otherwise.
-	*/
-	virtual bool initialize(Network* network) = 0;
-	/**
-	  Initializes all variables and arrays for gravitational clustering with random numbers.
-
-	  \param[in] randomOptions Options for RNG
-	  \return True on success, False otherwise.
-	*/
-	virtual bool initialize(RandomOptions* randomOptions) = 0;
-	/**
-	  Initializes Grid spatial structure.
-
-	  \param[in] re_size True if existing grid should be reallocated (decreased in size).
 	  \return True on success, False otherwise.
 
 	  ERRORS:
 	   - bad_alloc ... error during memory allocatation
 	*/
-	virtual bool generateGrid(bool re_size) = 0;
+	virtual bool generateGrid() = 0;
 	/**
 	  Inserts points into Grid.
 
@@ -88,62 +76,40 @@ protected:
 	/**
 	  Find's nearest neighbour of each particle by using Grid.
 
-	  \return True on success, False otherwise.
+	  \return True on success, false otherwise.
 	*/
 	virtual bool findClusters() = 0;
 	/**
 	  Clusterizes pairs of particles which are nearest to each other (symmetrically).
 
-	  \return True on success, False otherwise.
+	  \return True on success, false otherwise.
 	*/
 	virtual bool mergeClusters() = 0;
 	/**
-	  Resizes the arrays in case number of "alive" points gets low enough.
-
-	  Depends on configured parameters (usually half).
+	  Re-computed the number of alive particales, and re-sized State in case
+	  the current value gets low enough (configured from JSON file).
 
 	  \return True if re-sizing happend, false otherwise.
-
-	  ERRORS:
-		- bad_alloc ... error during memory allocatation
 	*/
-	virtual bool reSize() = 0;
+	virtual bool countAlive() = 0;
 	/**
 	  Find the current minimal and maximal (x, y) coordinates of
-	  clusters (edges), which are used as the grid limits.
+	  clusters, which are used as the grid limits.
 
-	  \return Float4 containing coordinate limit's (max_x, max_y, min_x, min_y)
+	  \return Float4 containing coordinate limits (max_x, max_y, min_x, min_y)
 	*/
 	virtual float4 findBorders() = 0;
 	// ------------------------ Utility methods ------------------------ 
 	/**
-	  Generates random values to State, based on given parameters.
+	  Computes the cell in which the point is, based on its position.
 
-	  \return True on success, false otherwise.
+	  \param[in] clusterID id of the cluster
+	  \return Id of cell cluster is in.
 	*/
-	bool generateRandomValues();
-	/**
-	  Checks Grid structure correctness.
-
-	  \return True on success, false otherwise.
-	*/
-	bool checkGrid();
-	/**
-	  Computes the cell on which the point is, based on its position.
-
-	  \param[in] edgeID id of the edge
-	  \return Id of cell edge is on.
-	*/
-	inline int getCell(const int edgeID) const {
-		assert(edgeID < state.numEdges);
-		const int x = static_cast<int>((state.positions[edgeID].x - grid.borders.z) / clusteringOptions->radius);
-		const int y = static_cast<int>((state.positions[edgeID].y - grid.borders.w) / clusteringOptions->radius);
-		if (!(x >= 0 && y >= 0)) {
-			std::cout << "EdgeID: " << edgeID << std::endl;
-			std::cout << "Pos.x: " << state.positions[edgeID].x << ", Pos.y: " << state.positions[edgeID].y << std::endl;
-			std::cout << "Grid.z: " << grid.borders.z << ", Grid.w: " << grid.borders.w << std::endl;
-			std::cout << "x,y = " << x << " - " << y << std::endl;
-		}
+	inline int getCell(const int clusterID) const {
+		assert(clusterID < state.size);
+		const int x = static_cast<int>((state.positions[clusterID].x - grid.borders.z) * clusteringOptions->params.radiusFrac);
+		const int y = static_cast<int>((state.positions[clusterID].y - grid.borders.w) * clusteringOptions->params.radiusFrac);
 		assert(x >= 0 && y >= 0);
 		assert(0 <= x + y * grid.rows && x + y * grid.rows < grid.size);
 		return x + y * grid.rows;
@@ -180,11 +146,10 @@ protected:
 	*/
 	inline bool isGridResizable(int newSize) const {
 		return (
-			state.isInitialized() && clusteringOptions->gridResize.allowed &&
-			// ((state.iteration % clusteringOptions->stateResize.frequency) == 0) &&
+			grid.isInitialized() && clusteringOptions->gridResize.allowed &&
 			(newSize >= clusteringOptions->gridResize.limit) &&
 			(newSize <= (grid.size * clusteringOptions->gridResize.percentage)) &&
-			((grid.size - newSize) < clusteringOptions->gridResize.minSize)
+			((grid.size - newSize) > clusteringOptions->gridResize.minSize)
 		);
 	}
 	/**
@@ -195,22 +160,16 @@ protected:
 	inline bool isStateResizable() const {
 		return (
 			state.isInitialized() && clusteringOptions->stateResize.allowed && 
-			// ((state.iteration % clusteringOptions->stateResize.frequency) == 0) &&
-			(state.numEdges >= clusteringOptions->stateResize.limit) &&
-			(state.numAlive <= (state.numEdges * clusteringOptions->stateResize.percentage)) &&
-			((state.numEdges - state.numAlive) > clusteringOptions->stateResize.minSize)
+			((state.iteration % clusteringOptions->stateResize.frequency) != 0) &&
+			(state.size >= clusteringOptions->stateResize.limit) &&
+			(state.numAlive <= (state.size * clusteringOptions->stateResize.percentage)) &&
+			((state.size - state.numAlive) > clusteringOptions->stateResize.minSize)
 		);
 	}
-
 	// ------------------------ Struct's ------------------------ 
-	PlotOptions* plotOptions = nullptr; ///< pointer to PlottingOptions (not allocated here)
 	ClusteringOptions* clusteringOptions = nullptr; ///< pointer to ClusteringOptions (not allocated here)
-	RandomOptions* randomOptions = nullptr; ///< pointer to RandomOptions (not allocated here)
-	Network* network = nullptr; ///< pointer to Network (not allocated here)
 	Grid grid = Grid(true); ///< Grid spatial structure, allocted by child classes
 	State state = State(true); ///< State of current gravitational clustering
+	PeformanceRecord record = PeformanceRecord(); ///< Struct measuring function performance
+	std::vector<PeformanceRecord> records; ///< Vector holding peformance throughout iterations
 };
-
-
-
-

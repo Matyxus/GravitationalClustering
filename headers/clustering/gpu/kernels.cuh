@@ -13,8 +13,8 @@
 
 // -------------------------------- Host Kernels --------------------------------
 
-
-__global__ void insertPointsKern(State stateGPU, Grid gridGPU, const float radius);
-__global__ void computeMovementsKern(State stateGPU, const float radius2);
+__global__ void insertPointsKern(State stateGPU, Grid gridGPU, const float radiusFrac);
+__global__ void sortPointsKern(State stateGPU, Grid gridGPU);
+// __global__ void computeMovementsKern(State stateGPU, const float radius2);
 
 

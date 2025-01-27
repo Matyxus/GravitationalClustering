@@ -7,20 +7,18 @@
 */
 //----------------------------------------------------------------------------------------
 #pragma once
-#include "../../headers/clustering/gpu/kernels.cuh"
-// #include "../../headers/clustering/gpu/prefix.cuh"
-
+#include "kernels.cuh"
+#include "alloc.cuh"
 
 // Extern functions which can HOST use
 extern "C"
 {	
-	bool initializeCuda();
-	// Allocations
-	bool allocateStateCUDA(State& stateCPU, State& stateGPU);
-	// Methods
-	bool generateGridCUDA(Grid& gridGPU, const float4 borders, const int numEdges, const float radius);
-	bool insertPointsCUDA(State& stateGPU, Grid& gridGPU, const int threads, const float radius);
-;	float4 findBordersCUDA(float2* positions, bool* alive, float4** partial, struct Level* borderLevels, const int levels, int size);
+	//  ----- Clustering Methods ----- 
+	void insertPointsCUDA(State stateGPU, Grid gridGPU, const int maxThreads, const float radiusFrac);
+	void computeMovementsCUDA(State& stateGPU, const int threads, const float4& borders);
+	void findClustersCUDA(State& stateGPU, Grid& gridGPU, const float radius2);
+	void mergeClustersCUDA(State& stateGPU);
+	float4 findBordersCUDA(State& stateGPU, const int maxThreads);
 }
 
 

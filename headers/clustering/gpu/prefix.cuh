@@ -2,6 +2,7 @@
 /**
  * \file       prefix.cuh
  * \author     Matyáš Švadlenka
+ * \credit	   https://github.com/ramakarl/fluids3/blob/master/fluids/prefix_sum.cu
  * \date       2024/12/09
  * \brief      Header for decleration of CUDA template kernels for prefix sum and parallel reduction.
 */
@@ -18,7 +19,7 @@
 // --------------- Kernels usable by Host --------------- 
 
 /**
-	Computes borderds of grid (min/max x/y) as float4 variable from current positions of clusters.
+	Computes borders of grid (min_x, min_y, max_x, max_y) as float4 variable from current positions of clusters.
 
 	\param[in] input current positions of clusters
 	\param[in] out Partial block output from reduction
@@ -55,9 +56,10 @@ __global__ void prescanInt(const int* input, int* out, int* sums, const int size
 /**
 	Simple add kernel summing block sums to original.
 
+	\param[in] isNP2 true if the size is not power of 2, false otherwise
 	\param[in] out Output array to which the sums will be added
 	\param[in] sums Partial block sums
 	\param[in] size Size of input
 */
-__global__ void addInt(int* out, const int* sums, const int size, const int blockOffset, const int baseIndex);
+template <bool isNP2> __global__ void addInt(int* out, const int* sums, const int size, const int blockOffset, const int baseIndex);
 

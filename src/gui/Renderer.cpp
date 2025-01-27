@@ -21,11 +21,11 @@ bool Renderer::plotPlanets(State &state, const float multiplier) {
     std::vector<float> weigths;
     positionsGUI.reserve(state.numAlive);
     weigths.reserve(state.numAlive);
-    for (int i = 0; i < state.numEdges; i++) {
+    const float frac = 1.f / multiplier;
+    for (int i = 0; i < state.size; i++) {
         if (state.alive[i]) {
-            // assert(positions[i].x >= 0 && positions[i].y >= 0);
             positionsGUI.push_back(glm::vec2{state.positions[i].x, state.positions[i].y });
-            weigths.push_back(state.weigths[i] / multiplier);
+            weigths.push_back(state.weigths[i] * frac);
         }
     }
     glBindBuffer(GL_ARRAY_BUFFER, position_vbo);
@@ -73,8 +73,8 @@ bool Renderer::create_window() {
     }
 
     window = SDL_CreateWindow(
-        "GravClustering", SDL_WINDOWPOS_CENTERED,
-        SDL_WINDOWPOS_CENTERED, WIDTH, HEIGHT,
+        options.title.data(), SDL_WINDOWPOS_CENTERED,
+        SDL_WINDOWPOS_CENTERED, options.width, options.height,
         SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL
     );
     if (window == NULL) {
@@ -179,7 +179,7 @@ bool Renderer::create_shader() {
 
 // ------------------------------- Utils ------------------------------- 
 
-int Renderer::pollEvents(int current) {
+int Renderer::pollEvents(const int currentEvent) {
     if (!isRunning()) {
         std::cout << "Error, unable to poll events, GUI is not running!" << std::endl;
         return QUIT;
@@ -198,7 +198,7 @@ int Renderer::pollEvents(int current) {
                 switch (event.key.keysym.sym) {
                     case SDLK_SPACE:
                         std::cout << "Pressed: 'space bar' !" << std::endl;
-                        return (current == PAUSE) ? RUN : PAUSE;
+                        return (currentEvent == PAUSE) ? RUN : PAUSE;
                     case SDLK_LEFT:
                         std::cout << "Pressed: '<-'!" << std::endl;
                         return PREVIOUS;
@@ -238,7 +238,7 @@ int Renderer::pollEvents(int current) {
                 break;
         }
     }
-    return current;
+    return currentEvent;
 }
 
 void Renderer::freeMemory() {

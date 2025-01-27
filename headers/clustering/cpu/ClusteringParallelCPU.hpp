@@ -21,8 +21,14 @@
 */
 class ClusteringParallelCPU : public Interface {
 public:
-	ClusteringParallelCPU(Config* config, Network* network) : Interface(config, network) { initialize(network); };
-	ClusteringParallelCPU(Config* config, RandomOptions* randomOptions) : Interface(config, randomOptions) { initialize(randomOptions); };
+	ClusteringParallelCPU(Config* config, Network* network) : Interface(config, network), threads(setThreads(config->getDeviceOptions()->cpu_threads)) {
+		assert(isInitialized());
+		partial = (int*)calloc(threads, sizeof(int));
+	};
+	ClusteringParallelCPU(Config* config) : Interface(config), threads(setThreads(config->getDeviceOptions()->cpu_threads)) {
+		assert(isInitialized()); 
+		partial = (int*)calloc(threads, sizeof(int));
+	};
 	~ClusteringParallelCPU(void) {
 		std::cout << "Freeing ClusteringParallelCPU" << std::endl;
 		if (partial != nullptr) {
@@ -33,15 +39,28 @@ public:
 	bool step();
 private:
 	// ------------------------ Methods ------------------------ 
-	bool initialize(Network* network);
-	bool initialize(RandomOptions* randomOptions);
-	bool generateGrid(bool re_size);
+	bool generateGrid();
 	bool insertPoints();
 	bool computeMovements();
 	bool findClusters();
 	bool mergeClusters();
-	bool reSize();
+	bool countAlive();
 	float4 findBorders();
-	// Vars
+	// ------------------------ Utils ------------------------
+	inline int setThreads(const int total) {
+		const int maximal = omp_get_max_threads();
+		if (total > maximal) {
+			std::cout << "Error: Unable to use: " << total << " threads, maximum is: " << maximal << std::endl;
+			return maximal;
+		}
+		else if (total <= 1) {
+			std::cout << "Error: Allocating " << total << " threads to parallel clustering, defaulting to 1!" << std::endl;
+			return 1;
+		}
+		std::cout << "Setting number of threads as: " << total << std::endl;
+		return total;
+	}
+	// ------------------------ Vars ------------------------
 	int* partial = nullptr; ///< Partial sums during parallel prefix scan
+	const int threads; ///< Threads used by the algorithm
 };

@@ -13,72 +13,45 @@
 #include <typeinfo>
 #include <stdexcept>
 
-
-
-
 /// Class that implements gravitational clustering on GPU.
 /**
   This class extends Interface and implements the clustering itself which is run on GPU,
-  always after every iteration data from GPU is transferred to CPU for checking/rendering.
+  provides method to copy data back to CPU.
 */
 class ClusteringGPU : public Interface {
 public:
-	ClusteringGPU(Config* config, Network* network) : Interface(config, network) { initialize(network); };
-	ClusteringGPU(Config* config, RandomOptions* randomOptions) : Interface(config, randomOptions) { initialize(randomOptions); };
-	~ClusteringGPU();
+	ClusteringGPU(Config* config, Network* network) : Interface(config, network), threads(setThreads(config->getDeviceOptions()->gpu_threads)) { assert(initializeGPU()); };
+	ClusteringGPU(Config* config) : Interface(config), threads(setThreads(config->getDeviceOptions()->gpu_threads)) { assert(initializeGPU()); };
+	~ClusteringGPU() {
+		freeStateCUDA(stateGPU);
+		freeGridCUDA(gridGPU);
+		freeHelpers();
+	}
 	bool step();
+	void copyToCPU() { copyToHost(state, stateGPU); };
 private:
 	// ------------------------ Methods ------------------------ 
-	// Init's
-	bool initialize(Network* network);
-	bool initialize(RandomOptions* randomOptions);
-	bool initializeCPU(Network* network);
-	bool initializeCPU(RandomOptions* randomOptions);
-	bool initializeGPU();
 	// Clustering
-	bool generateGrid(bool re_size);
+	bool generateGrid();
 	bool insertPoints();
 	bool computeMovements();
 	bool findClusters();
 	bool mergeClusters();
-	bool reSize();
-	float4 findBorders();
+	bool countAlive();
+	float4 findBorders() { return findBordersCUDA(stateGPU, threads);};
 	// Utils
-	bool initializeBlocksBorderds();
-	bool initializeBlocksAlive();
-	bool initializeBlocksGrid();
-	/**
-	  Frees parallel reduction blocks for finding borderds on GPU.
-
-	  Does not however free CPU allocation of arrays.
-	*/
-	void freeBlocksBorders();
-	/**
-	  Frees parallel reduction blocks for finding borderds on GPU.
-
-	  Does not however free CPU allocation of arrays.
-	*/
-	void freeBlocksAlive();
-	/**
-	  Frees parallel reduction blocks for Grid sorting on GPU.
-
-	  Does not however free CPU allocation of arrays.
-	*/
-	void freeBlocksGrid();
+	bool initializeGPU();
+	inline int setThreads(const int total) {
+		if (!isPowerOfTwo(total)) {
+			std::cout << "Erorr: Number of GPU threads must be 2^X, got: " << total;
+			std::cout << ", defaulting to: " << MAX_GPU_THREADS << std::endl;
+			return MAX_GPU_THREADS;
+		}
+		std::cout << "Setting number of GPU threads as: " << total << std::endl;
+		return total;
+	}
 	// ------------------------ GPU Vars ------------------------ 
+	const int threads;
 	State stateGPU = State(false); ///< State of current gravitational clustering on GPU
 	Grid gridGPU = Grid(false); ///< Grid spatial structure on GPU
-	// Borders reduction
-	float4** partialBorders = nullptr; ///< Partial arrays containing parallel reduction results for findind borderds
-	std::vector<Level> levelsBorders; ///< Supporting structures containing vars of parallel reduction for findind borderds
-	int borderLevels = 0; ///< Total number of levels for reduction on borders
-	// Alive reduction
-	int** partialAlive = nullptr; ///< Partial arrays containing parallel reduction results for counting alive clusters
-	std::vector<Level> levelsAlive; ///< Supporting structures containing vars of parallel reduction for counting alive
-	int aliveLevels = 0; ///< Total number of levels for reduction on counting alive clusters
-	// Grid reduction
-	int** partialGrid = nullptr; ///< Partial arrays containing parallel reduction for sorting Grid by cells
-	std::vector<Level> levelsGrid; ///< Supporting structures containing vars of parallel reduction on Grid
-	int gridLevels = 0; ///< Total number of levels for reduction on sorting grid
-
 };

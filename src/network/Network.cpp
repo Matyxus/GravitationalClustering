@@ -79,7 +79,7 @@ bool Network::loadJunctions(pugi::xml_document &doc) {
 
 // --------------------------------------- Loading CI --------------------------------------- 
 
-bool Network::loadCI(const std::string path, const float startTime, const float endTime) {
+bool Network::loadCI(const std::string path, const float startTime, const float endTime, const float offset) {
 	// Check if the network was loaded
 	if (!isLoaded()) {
 		std::cout << "Error, Network has to be loaded before CongestionIndexes!" << std::endl;
@@ -103,7 +103,7 @@ bool Network::loadCI(const std::string path, const float startTime, const float 
 	}
 	// Read file and load CI to edges of network
 	uint16_t num_intervals = 0;
-	std::vector<float> congestions(edges.size(), 0.0);
+	std::vector<float> congestions(edges.size(), 0.f);
 	for (pugi::xml_node xml_interval : doc.first_child().children("interval")) {
 		// Load data only between given time intervals
 		if (xml_interval.attribute("begin").as_float() < startTime) {
@@ -127,13 +127,16 @@ bool Network::loadCI(const std::string path, const float startTime, const float 
 		num_intervals++;
 	}
 	// Assign averaged values to edges
-	uint16_t setCongestions = 0;
+	uint32_t setCongestions = 0;
 	for (size_t i = 0; i < edges.size(); i++) {
-		setCongestions += (congestions[i] != 0.f);
+		if (congestions[i] == 0.f) {
+			congestions[i] = offset;
+			setCongestions++;
+		}
 		edges[i]->setCongestionIndex(congestions[i] / num_intervals);
 	}
 	if (setCongestions != edges.size()) {
-		std::cout << "Some edges are missing CI, loaded: " << setCongestions << "/" << edges.size() << std::endl;
+		std::cout << "Filled: " << setCongestions << "/" << edges.size() << " edges with default offset: " << offset << std::endl;
 		return false;
 	}
 	std::cout << "Successfully loaded " << num_intervals << " CI intervals." << std::endl;

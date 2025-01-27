@@ -10,6 +10,7 @@
 #include "vector_types.h"
 #include <iostream>
 #include <limits>
+#include <assert.h>
 
 
 /// Struct for spastial structure (grid) for Gravitational Clustering.
@@ -24,36 +25,18 @@ typedef struct Grid {
 	int* pointOrder = nullptr; ///< pointOrder[pointID] -> order of precedence among points with the same cellID
 	int neighbours[8] = { -1, 1, 0, 0, 0, 0, 0, 0 }; ///< Neighbours in all 8 directions -> cellID + neighbours[i]
 	float4 borders = float4{0.f, 0.f, 0.f, 0.f}; ///< Grid coordinate limit's (max_x, max_y, min_x, min_y) 
-	// Utils
 	const bool host; ///< Flag to know where the data is allocated
-	int padding = 0; ///< Padding added to arrays (GPU only to to make sizes 2^x)
 	Grid(bool host) : host(host) {};
-	~Grid() {
-		if (!host) {
-			return;
-		}
-		std::cout << "Freeing Grid on CPU" << std::endl;
-		if (cells != nullptr) {
-			free(cells);
-			cells = nullptr;
-		}
-		if (sortedCells != nullptr) {
-			free(sortedCells);
-			sortedCells = nullptr;
-		}
-		if (gridMap != nullptr) {
-			free(gridMap);
-			gridMap = nullptr;
-		}
-		if (binCounts != nullptr) {
-			free(binCounts);
-			binCounts = nullptr;
-		}
-		if (pointOrder != nullptr) {
-			free(pointOrder);
-			pointOrder = nullptr;
-		}
-	}
+	~Grid();
+	/**
+	  Allocates or re-allocates (only lower size) grid based on given parameters.
+
+	  \param[in] newBorders New grid borders (max_x, max_y, min_x, min_y) 
+	  \param[in] nRows Number of rows
+	  \param[in] nCols Number of cols
+	  \param[in] numPoints Number of clusters
+	*/
+	void allocate(const float4 newBorders, const int nRows, const int nCols, const int numClusters);
 	inline bool isNeigh(int cellID) const { return 0 <= cellID && cellID < size; };
 	inline bool isInitialized() const { 
 		return (
@@ -68,59 +51,44 @@ typedef struct Grid {
 
 /// Struct representing current State of Gravitational Clustering.
 typedef struct State {
-	uint16_t iteration = 0; ///< The current iteration
-	int numEdges = 0; ///< Total number of edges/clusters currently
-	int numAlive = 0; ///< Total number of edges/clusters currently in computation
+	uint32_t iteration = 0; ///< The current iteration
+	int size = 0; ///< Total number of clusters currently
+	int numAlive = 0; ///< Total number of clusters currently in computation
 	float2* positions = nullptr; ///< Positions of clusters (x, y)
 	float2* movements = nullptr; ///< Shift of cluster positions (x, y) after attraction is computed
 	float* weigths = nullptr; ///< Weight of each cluster
-	int2* clusters = nullptr; ///< Array mapping pointID to (clusterID, iteration when it merged (-1) for invalid), never resizes!
+	int2* clusters = nullptr; ///< Array mapping pointID to pair (clusterID, iteration when it merged (-1) for invalid), does not resize
 	int* indexes = nullptr; ///< Indexes of each cluster, shifts after more clusters being merge
 	int* merges = nullptr; ///< Array mapping clusters to other cluster which they merge with
 	bool *alive = nullptr; ///< Array which tells us if given clusterID is still present in computation
-	// Utils
 	const bool host; ///< Flag to know where the data is allocated
 	State(bool host) : host(host) {};
-	~State() {
-		if (!host) {
-			return;
-		}
-		std::cout << "Freeing State on CPU" << std::endl;
-		if (positions != nullptr) {
-			free(positions);
-			positions = nullptr;
-		}
-		if (movements != nullptr) {
-			free(movements);
-			movements = nullptr;
-		}
-		if (weigths != nullptr) {
-			free(weigths);
-			weigths = nullptr;
-		}
-		if (indexes != nullptr) {
-			free(indexes);
-			indexes = nullptr;
-		}
-		if (merges != nullptr) {
-			free(merges);
-			merges = nullptr;
-		}
-		if (alive != nullptr) {
-			free(alive);
-			alive = nullptr;
-		}
-		if (clusters != nullptr) {
-			free(clusters);
-			clusters = nullptr;
-		}
-	}
+	~State();
+	/**
+	  Allocates or re-allocates (only lower size) state based on given parameters.
+
+	  \param[in] numClusters Number of clusters
+	*/
+	void allocate(const int numClusters);
 	inline bool isInitialized() const { 
 		return (
-			numEdges > 0 && numAlive > 0 && positions != nullptr 
+			size > 0 && numAlive > 0 && positions != nullptr
 			&& movements != nullptr && weigths != nullptr && 
 			clusters != nullptr && indexes != nullptr && 
 			merges != nullptr && alive != nullptr
 		);
 	}
 } State;
+
+
+/// Struct measuring individual functions performance.
+typedef struct PeformanceRecord {
+	float bordersElapsed = 0.f; ///< Total time spent on finding Grid borders
+	float insertElapsed = 0.f; ///< Total time spent on inserting points
+	float movementsElapsed = 0.f; ///< Total time spent on computing movements
+	float neighboursElapsed = 0.f; ///< Total time spent on finding merging neighbours
+	float mergingElapsed = 0.f; ///< Total time spent on merging neighbours
+	float stateResizeElapsed = 0.f; ///< Total time spent on resizing state
+	float gridResizeElapsed = 0.f; ///< Total time spent on resizing grid
+} PeformanceRecord;
+
