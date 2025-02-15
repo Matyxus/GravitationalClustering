@@ -38,8 +38,6 @@ inline int getThreadsCount(const int blocks, const int size, const int maxThread
     return powerFloor(size);
 }
 
-
-
 static void HandleError(cudaError_t error, const char* file, int line) {
     if (error != cudaSuccess) {
         std::cout << cudaGetErrorString(error) << " in " << file << " at line " << line << std::endl;
@@ -48,15 +46,38 @@ static void HandleError(cudaError_t error, const char* file, int line) {
     }
 }
 
-/// Structure for parallel reduction on GPU
+/// Structure for recursive parallel reduction on GPU
 typedef struct Level {
-	const int level; ///< Current level of reduction
-	const int blocks; ///< Total number of blocks (equal to array size of that level)
-	const int threads; ///< Threads per block
-	const size_t sharedMem; ///< Shared memory for computation on this level
-	Level(int level, int blocks, int threads, int sharedMem) : 
-		level(level), blocks(blocks), threads(threads), sharedMem(sharedMem)
-	{};
+    dim3 grid;///< The grid of kernel
+	int blocks; ///< Total number of blocks (equal to array size of that level)
+	int threads; ///< Threads per block
+	size_t sharedMem; ///< Shared memory for computation on this level
+    // ----- Last block ----- 
+    int lastBlock; ///< 0 If there is no last block (is power of 2), 1 otherwise
+    int lastThreads; ///< Number of threads in last block
+    size_t lastSharedMem; ///< Shared memory size of last block
+    int lastElementsCount; ///< Number of elements in last block
+
+
+	Level(int numElements, int maxThreads, size_t elementSize) {
+        blocks = std::max(1, (int)ceil((float)numElements / (2.f * maxThreads)));
+        threads = getThreadsCount(blocks, numElements, maxThreads);
+        int numEltsPerBlock = threads * 2;
+        sharedMem = numEltsPerBlock * elementSize;
+        // Compute last block in case this is not power of 2 array size
+        lastElementsCount = numElements - (blocks - 1) * numEltsPerBlock;
+        lastThreads = std::max(1, lastElementsCount / 2);
+        lastBlock = 0;
+        lastSharedMem = 0;
+        if (lastElementsCount != numEltsPerBlock) {
+            lastBlock = 1;
+            if (!isPowerOfTwo(lastElementsCount)) {
+                lastThreads = powerFloor(lastElementsCount);
+            }
+            lastSharedMem = 2 * elementSize * lastThreads;
+        }
+        grid = dim3(std::max(1, blocks - lastBlock), 1, 1);
+    };
 } Level;
 
 /// Structure for timing kernels on GPU 

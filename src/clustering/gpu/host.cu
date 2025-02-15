@@ -74,7 +74,7 @@ float4 findBordersCUDA(State& stateGPU, const int maxThreads) {
 		threads = getThreadsCount(blocks, size, maxThreads);
 		sharedMemSize = threads * sizeof(float4) * 2;
 		std::cout << "Computing level: " << i << " blocks: " << blocks << " threads: " << threads << " size: " << size << std::endl;
- 		prescanF4<<<blocks, threads, sharedMemSize>>>(bordersBlocks->blocks[i-1], bordersBlocks->blocks[i], size, 0, 0);
+ 		// prescanF4<<<blocks, threads, sharedMemSize>>>(bordersBlocks->blocks[i-1], bordersBlocks->blocks[i], size, 0, 0);
 	}
 	CHECK_ERROR(cudaDeviceSynchronize());
 	timer.stop();
@@ -113,3 +113,20 @@ void prescanArrayRecursiveInt(const int* inArray, int* outArray, int numElements
 	}
 }
 */
+
+
+void testPrefix() {
+
+
+
+
+}
+
+
+
+
+
+
+
+
+

@@ -1,15 +1,18 @@
 #include "../headers/clustering/cpu/ClusteringSerialCPU.hpp"
 #include "../headers/clustering/cpu/ClusteringParallelCPU.hpp"
 #include "../headers/clustering/gpu/ClusteringGPU.hpp"
+#include "../headers/test/prefixGPU.cuh"
 #include "../headers/gui/Renderer.hpp"
-// #include "../headers/test/prefixCPU.hpp"
+
 
 void compareState(State& stateA, State& stateB);
 void compareGrid(Grid& gridA, Grid& gridB, const int numClusters);
 void compareCPU(Config& config, Network& network);
 
+
 int main(int argc, char* argv[]) {
     Config config = Config("./Data/config/clustering_config.json");
+    /*
     auto data = config.getDataOptions();
     Network network = Network(
         data->networkOptions.path,
@@ -18,18 +21,22 @@ int main(int argc, char* argv[]) {
         data->networkOptions.endTime,
         data->networkOptions.offset
     );
-    ClusteringGPU clustering = ClusteringGPU(&config, &network);
+    */
+    // ClusteringGPU gpu = ClusteringGPU(&config, &network);
+    // initializeCuda();
+    // testAlivePrefixGPU(9942, 0.75);
+    testBordersPrefixGPU(9942, 0.75);
 
-
-
-    // clustering.step();
     /*
-    Renderer renderer = Renderer(clustering.getGrid().borders, config.getGuiOptions()->windowOptions);
-    State &state = clustering.getState();
+    // Rendering
+    Renderer renderer = Renderer(float4{0.f, 0.f, 0.f, 0.f}, config.getGuiOptions()->windowOptions);
     int prevState = PAUSE;
     int eventState = PAUSE;
     std::cout << "Current event: " << eventNames[eventState] << std::endl;
     while (renderer.isRunning()) {
+        if (!renderer.plotNetwork(network)) {
+            break;
+        }
         prevState = eventState;
         eventState = renderer.pollEvents(eventState);
         if (eventState != prevState) {
@@ -40,7 +47,7 @@ int main(int argc, char* argv[]) {
                 break;
             case NEXT:
                 std::cout << "Next is not fully implemented yet!" << std::endl;
-                clustering.step();
+                // clustering.step();
                 eventState = PAUSE;
                 break;
             case PREVIOUS:
@@ -50,18 +57,14 @@ int main(int argc, char* argv[]) {
             case PAUSE:
                 break; // Pass
             case RUN:
-                clustering.step();
+                // clustering.step();
                 break;
             default:
                 break;
         }
-        if (!renderer.plotPlanets(state, 10.f)) {
-            break;
-        }
-        // std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
     */
-	return 0;
+    return 0;
 }
 
 

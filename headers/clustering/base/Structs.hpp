@@ -86,7 +86,7 @@ typedef struct PeformanceRecord {
 	float bordersElapsed = 0.f; ///< Total time spent on finding Grid borders
 	float insertElapsed = 0.f; ///< Total time spent on inserting points
 	float movementsElapsed = 0.f; ///< Total time spent on computing movements
-	float neighboursElapsed = 0.f; ///< Total time spent on finding merging neighbours
+	float neighboursElapsed = 0.f; ///< Total time spent on finding candidates for merging
 	float mergingElapsed = 0.f; ///< Total time spent on merging neighbours
 	float stateResizeElapsed = 0.f; ///< Total time spent on resizing state
 	float gridResizeElapsed = 0.f; ///< Total time spent on resizing grid

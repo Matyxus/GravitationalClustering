@@ -51,7 +51,7 @@ private:
 		return total;
 	}
 	// ------------------------ GPU Vars ------------------------ 
-	const int threads;
+	const int threads; ///< Maximal amount of threads per block on GPU
 	State stateGPU = State(false); ///< State of current gravitational clustering on GPU
 	Grid gridGPU = Grid(false); ///< Grid spatial structure on GPU
 };

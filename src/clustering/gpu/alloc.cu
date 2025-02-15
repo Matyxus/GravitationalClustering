@@ -28,7 +28,6 @@ bool initializeCuda() {
 		return false;
 	}
 	cudaSetDevice(i);
-	std::cout << "CUDA initialized!" << std::endl;
 	cudaDeviceProp p;
 	cudaGetDeviceProperties(&p, i);
 	std::cout << "-------------- CUDA --------------" << std::endl;
@@ -194,6 +193,7 @@ void allocateStateHelpers(const int numClusters, const int threads) {
 	bordersBlocks = new struct ReductionBlock<float4>(numClusters, threads, true, false);
 	aliveBlocks = new struct ReductionBlock<int>(numClusters, threads, false, true);
 	assert(bordersBlocks != nullptr && aliveBlocks != nullptr);
+	CHECK_ERROR(cudaMemset(aliveBlocks->helper, 0, numClusters * sizeof(int)));
 	std::cout << "--------- Finished ---------" << std::endl;
 }
 

@@ -103,7 +103,8 @@ bool Network::loadCI(const std::string path, const float startTime, const float 
 	}
 	// Read file and load CI to edges of network
 	uint16_t num_intervals = 0;
-	std::vector<float> congestions(edges.size(), 0.f);
+	std::vector<std::pair<float, uint16_t>> congestions(edges.size(), std::make_pair(0.f, 0)); // (CI, count)
+	uint16_t id = 0;
 	for (pugi::xml_node xml_interval : doc.first_child().children("interval")) {
 		// Load data only between given time intervals
 		if (xml_interval.attribute("begin").as_float() < startTime) {
@@ -121,7 +122,9 @@ bool Network::loadCI(const std::string path, const float startTime, const float 
 				// std::cout << "Warning, edge: '" << xml_edge.attribute("id").as_string() << "' does not exist!" << std::endl;
 				continue;
 			} else { // Load value
-				congestions[edgeMap[xml_edge.attribute("id").as_string()]] += xml_edge.attribute("congestionIndex").as_float();
+				id = edgeMap[xml_edge.attribute("id").as_string()];
+				congestions[id].first += xml_edge.attribute("congestionIndex").as_float();
+				congestions[id].second++;
 			}
 		}
 		num_intervals++;
@@ -129,15 +132,15 @@ bool Network::loadCI(const std::string path, const float startTime, const float 
 	// Assign averaged values to edges
 	uint32_t setCongestions = 0;
 	for (size_t i = 0; i < edges.size(); i++) {
-		if (congestions[i] == 0.f) {
-			congestions[i] = offset;
+		if (congestions[i].second == 0) {
+			edges[i]->setCongestionIndex(offset);
 			setCongestions++;
+		} else {
+			edges[i]->setCongestionIndex(congestions[i].first / congestions[i].second);
 		}
-		edges[i]->setCongestionIndex(congestions[i] / num_intervals);
 	}
-	if (setCongestions != edges.size()) {
+	if (setCongestions != 0) {
 		std::cout << "Filled: " << setCongestions << "/" << edges.size() << " edges with default offset: " << offset << std::endl;
-		return false;
 	}
 	std::cout << "Successfully loaded " << num_intervals << " CI intervals." << std::endl;
 	return true;

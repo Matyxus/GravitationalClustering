@@ -13,7 +13,7 @@
 template <typename T> 
 struct ReductionBlock {
 	T** blocks = nullptr; ///< Arrays containing parallel reduction results
-	T* helper = nullptr; ///< Array used as reduction output destination (when we want to perseve original)
+	T* helper = nullptr; ///< Array used as reduction output destination (when we want to perserve original)
 	const int levels; ///< Total amount of reduction levels in blocks
 	ReductionBlock(const int totalSize, const int threads, const bool allocateLast, const bool allocateHelper);
 	~ReductionBlock();

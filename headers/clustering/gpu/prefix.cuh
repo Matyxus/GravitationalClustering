@@ -27,39 +27,50 @@
 	\param[in] size Size of positions
 */
 __global__ void prescanF2(const float2* input, float4* out, const bool* alive, const int size, const int blockIndex, const int baseIndex);
+
 /**
 	Computes borderds of grid (min/max x/y) as float4 variable from lower level partial blocks.
 
+	\param[in] isNP2 True if the size is not power of 2, false otherwise
 	\param[in] input current positions of clusters
 	\param[in] out Partial block output from reduction
 	\param[in] size Size of positions
 */
-__global__ void prescanF4(const float4* input, float4* out, const int size, const int blockIndex, const int baseIndex);
+template<bool isNP2> __global__ void prescanF4(const float4* input, float4* out, const int size, const int blockIndex, const int baseIndex);
+
 /**
 	Computes prefix sum for alive clusters.
 
+	\param[in] store Flag to determine wheter the block sum should be stored
+	\param[in] isNP2 True if the size is not power of 2, false otherwise
 	\param[in] input current alive clusters
 	\param[in] out Output array where down-sweep reduction should be stored
 	\param[in] sums Partial block sums
 	\param[in] size Size of input
 */
-__global__ void prescanBool(const bool* input, int* out, int* sums, const int size, const int blockIndex, const int baseIndex);
+template<bool store, bool isNP2> __global__ void prescanBool(const bool* input, int* out, int* sums, const int size, const int blockIndex, const int baseIndex);
+
 /**
 	Computes prefix sum for alive clusters (higher levels) or Grid.
 
+	\param[in] store Flag to determine wheter the block sum should be stored
+	\param[in] isNP2 True if the size is not power of 2, false otherwise
 	\param[in] input current alive clusters / grid bin counts
 	\param[in] out Output array where down-sweep reduction should be stored
 	\param[in] sums Partial block sums
 	\param[in] size Size of input
 */
-__global__ void prescanInt(const int* input, int* out, int* sums, const int size, const int blockIndex, const int baseIndex);
+template<bool store, bool isNP2> __global__ void prescanInt(const int* input, int* out, int* sums, const int size, const int blockIndex, const int baseIndex);
+
 /**
 	Simple add kernel summing block sums to original.
 
-	\param[in] isNP2 true if the size is not power of 2, false otherwise
+	\param[in] isNP2 True if the size is not power of 2, false otherwise
 	\param[in] out Output array to which the sums will be added
 	\param[in] sums Partial block sums
 	\param[in] size Size of input
+	\param[in] blockOffset The block offset of sum
+	\param[in] baseIndex The thread offset of output where the sums are added
 */
 template <bool isNP2> __global__ void addInt(int* out, const int* sums, const int size, const int blockOffset, const int baseIndex);
 
